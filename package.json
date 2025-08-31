@@ -1,0 +1,41 @@
+{
+  "name": "embedinginterface",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "build": {
+    "appId": "com.votre.app",
+    "productName": "Nom de votre app",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EpineyFlorent/EmbedingInterface.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/EpineyFlorent/EmbedingInterface/issues"
+  },
+  "homepage": "https://github.com/EpineyFlorent/EmbedingInterface#readme",
+  "description": "",
+  "devDependencies": {
+    "electron": "^37.4.0",
+    "electron-builder": "^26.0.12"
+  }
+}
