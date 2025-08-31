@@ -9,6 +9,11 @@
   "build": {
     "appId": "com.votre.app",
     "productName": "Nom de votre app",
+    "files": [
+      "**/*",
+      "static/**/*",
+      "templates/**/*"
+    ],
     "directories": {
       "output": "dist"
     },
