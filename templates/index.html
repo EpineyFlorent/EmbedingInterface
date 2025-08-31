@@ -2,7 +2,7 @@
     <html>
     <head>
         <title>Interface d'Embeddings</title>
-        <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+        <link rel="stylesheet" href="../static/style.css">
     </head>
     <body>
         <div class="overlay" id="overlay"></div>
@@ -13,20 +13,20 @@
                 <div class="form-group">
                     <label for="data_dir">Répertoire des documents:</label>
                     <div class="input-group">
-                        <input type="text" id="data_dir" name="data_dir" value="{{ config.data_dir }}" readonly>
+                        <input type="text" id="data_dir" name="data_dir" readonly>
                         <button type="button" onclick="browseFolder('data_dir')">Parcourir</button>
                     </div>
                 </div>
                 <div class="form-group">
                     <label for="embeddings_file">Fichier d'embeddings:</label>
                     <div class="input-group">
-                        <input type="text" id="embeddings_file" name="embeddings_file" value="{{ config.embeddings_file }}" readonly>
+                        <input type="text" id="embeddings_file" name="embeddings_file" readonly>
                         <button type="button" onclick="browseFile('embeddings_file')">Parcourir</button>
                     </div>
                    </div>
                 <div class="form-group">
                     <label for="model">Modèle LLM:</label>
-                    <input type="text" id="model" name="model" value="{{ config.model }}">
+                    <input type="text" id="model" name="model">
                 </div>
                 <button type="submit">Sauvegarder la configuration</button>
             </form>
@@ -49,6 +49,6 @@
         </div>
         <div id="status" class="status"></div>
 
-        <script src="/static/script.js"></script>
+        <script src="../static/script.js"></script>
     </body>
     </html>
