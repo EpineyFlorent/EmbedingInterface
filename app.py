@@ -8,6 +8,7 @@ from sentence_transformers import SentenceTransformer
 from PyPDF2 import PdfReader
 from docx import Document
 from flask import url_for
+from flask import jsonify
 import torch
 
 app = Flask(__name__)
@@ -67,6 +68,67 @@ def handle_query():
         return jsonify({"status": "success", "response": answer})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)})
+
+@app.route('/browse', methods=['POST'])
+def browse():
+    try:
+        data = request.get_json()
+        current_path = data.get('current_path', None)
+        file_type = data.get('type', 'folder')
+        extension = data.get('extension', '')
+
+        # Si pas de chemin ou chemin invalide, utiliser le répertoire courant
+        if not current_path or not os.path.exists(current_path):
+            current_path = os.getcwd()
+
+        # Si c'est un fichier, utiliser son dossier parent
+        if os.path.isfile(current_path):
+            current_path = os.path.dirname(current_path)
+
+        # Normalise le chemin
+        current_path = os.path.abspath(current_path)
+
+        items = []
+        try:
+            with os.scandir(current_path) as entries:
+                for entry in entries:
+                    # Ignore les fichiers/dossiers cachés
+                    if entry.name.startswith('.'):
+                        continue
+
+                    try:
+                        if file_type == 'file' and entry.is_file():
+                            if not extension or entry.name.endswith(extension):
+                                items.append({
+                                    'name': entry.name,
+                                    'path': os.path.abspath(entry.path),
+                                    'type': 'file'
+                                })
+                        elif file_type == 'folder' and entry.is_dir():
+                            items.append({
+                                'name': entry.name,
+                                'path': os.path.abspath(entry.path),
+                                'type': 'dir'
+                            })
+                    except (PermissionError, OSError):
+                        continue
+        except PermissionError:
+            return jsonify({
+                'status': 'error',
+                'message': 'Accès refusé au dossier'
+            })
+
+        return jsonify({
+            'status': 'success',
+            'items': sorted(items, key=lambda x: (x['type'] != 'dir', x['name'].lower())),
+            'current_path': current_path
+        })
+
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Erreur de navigation : {str(e)}'
+        })
 
 # Modification des fonctions existantes pour utiliser la config
 def index_documents(model, data_dir, embeddings_file):

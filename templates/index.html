@@ -12,12 +12,18 @@
             <form id="configForm">
                 <div class="form-group">
                     <label for="data_dir">Répertoire des documents:</label>
-                    <input type="text" id="data_dir" name="data_dir" value="{{ config.data_dir }}" style="width: 100%;">
+                    <div class="input-group">
+                        <input type="text" id="data_dir" name="data_dir" value="{{ config.data_dir }}" readonly>
+                        <button type="button" onclick="browseFolder('data_dir')">Parcourir</button>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="embeddings_file">Fichier d'embeddings:</label>
-                    <input type="text" id="embeddings_file" name="embeddings_file" value="{{ config.embeddings_file }}">
-                </div>
+                    <div class="input-group">
+                        <input type="text" id="embeddings_file" name="embeddings_file" value="{{ config.embeddings_file }}" readonly>
+                        <button type="button" onclick="browseFile('embeddings_file')">Parcourir</button>
+                    </div>
+                   </div>
                 <div class="form-group">
                     <label for="model">Modèle LLM:</label>
                     <input type="text" id="model" name="model" value="{{ config.model }}">

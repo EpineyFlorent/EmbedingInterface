@@ -85,3 +85,113 @@ document.getElementById('queryForm').onsubmit = async (e) => {
         hideSpinner();
     }
 };
+
+function showFileDialog(items, currentPath, isFolder) {
+    return new Promise((resolve) => {
+        const dialog = document.createElement('div');
+        dialog.className = 'file-dialog';
+
+        const header = document.createElement('div');
+        header.className = 'dialog-header';
+        header.textContent = `Chemin actuel: ${currentPath}`;
+
+        const content = document.createElement('div');
+        content.className = 'dialog-content';
+
+        if (currentPath !== '/') {
+            const upItem = document.createElement('div');
+            upItem.className = 'file-item';
+            upItem.textContent = '..';
+            upItem.onclick = async () => {
+                dialog.remove();
+                const parentPath = currentPath.split('\\').slice(0, -1).join('\\') || '/';
+                if (isFolder) {
+                    await browseFolder('data_dir', parentPath);
+                } else {
+                    await browseFile('embeddings_file', parentPath);
+                }
+            };
+            content.appendChild(upItem);
+        }
+
+        items.forEach(item => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'file-item';
+            itemDiv.textContent = item.name;
+            itemDiv.onclick = () => {
+                dialog.remove();
+                if (item.type === 'dir' && !isFolder) {
+                    browseFile('embeddings_file', item.path);
+                } else {
+                    resolve(item.path);
+                }
+            };
+            content.appendChild(itemDiv);
+        });
+
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = 'Annuler';
+        closeBtn.onclick = () => {
+            dialog.remove();
+            resolve(null);
+        };
+
+        dialog.appendChild(header);
+        dialog.appendChild(content);
+        dialog.appendChild(closeBtn);
+        document.body.appendChild(dialog);
+    });
+}
+
+async function browseFolder(inputId, startPath = null) {
+    try {
+        const response = await fetch('/browse', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                type: 'folder',
+                current_path: startPath || document.getElementById(inputId).value
+            })
+        });
+        const data = await response.json();
+        if (data.status === 'success') {
+            const path = await showFileDialog(data.items, data.current_path, true);
+            if (path) {
+                document.getElementById(inputId).value = path;
+            }
+        } else {
+            showStatus(data.message, 'error');
+        }
+    } catch (error) {
+        showStatus('Erreur lors de la navigation', 'error');
+    }
+}
+
+async function browseFile(inputId, startPath = null) {
+    try {
+        const response = await fetch('/browse', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                type: 'file',
+                current_path: startPath || document.getElementById(inputId).value,
+                extension: '.json'
+            })
+        });
+        const data = await response.json();
+        if (data.status === 'success') {
+            const path = await showFileDialog(data.items, data.current_path, false);
+            if (path) {
+                document.getElementById(inputId).value = path;
+            }
+        } else {
+            showStatus(data.message, 'error');
+        }
+    } catch (error) {
+        showStatus('Erreur lors de la navigation', 'error');
+    }
+}
