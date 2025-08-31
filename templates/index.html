@@ -1,40 +1,45 @@
 <!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Assistant IA Documentation</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body { padding: 20px; }
-        #response { white-space: pre-wrap; }
-        .loading { display: none; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1 class="mb-4">Assistant IA Documentation</h1>
-        
-        <div class="row mb-4">
-            <div class="col">
-                <button id="indexBtn" class="btn btn-primary">Indexer les documents</button>
-                <span id="indexStatus" class="ms-3"></span>
-            </div>
-        </div>
-
-        <div class="row mb-3">
-            <div class="col">
-                <div class="input-group">
-                    <input type="text" id="queryInput" class="form-control" placeholder="Posez votre question...">
-                    <button id="queryBtn" class="btn btn-success">Envoyer</button>
+    <html>
+    <head>
+        <title>Interface d'Embeddings</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    </head>
+    <body>
+        <div class="overlay" id="overlay"></div>
+        <div class="spinner" id="spinner"></div>
+        <div class="config-section">
+            <h3>Configuration</h3>
+            <form id="configForm">
+                <div class="form-group">
+                    <label for="data_dir">Répertoire des documents:</label>
+                    <div class="input-group">
+                        <input type="text" id="data_dir" name="data_dir" value="{{ config.data_dir }}" readonly>
+                        <button type="button" onclick="browseFolder('data_dir')">Parcourir</button>
+                    </div>
                 </div>
-            </div>
+                <div class="form-group">
+                    <label for="embeddings_file">Fichier d'embeddings:</label>
+                    <div class="input-group">
+                        <input type="text" id="embeddings_file" name="embeddings_file" value="{{ config.embeddings_file }}" readonly>
+                        <button type="button" onclick="browseFile('embeddings_file')">Parcourir</button>
+                    </div>
+                   </div>
+                <div class="form-group">
+                    <label for="model">Modèle LLM:</label>
+                    <input type="text" id="model" name="model" value="{{ config.model }}">
+                </div>
+                <button type="submit">Sauvegarder la configuration</button>
+            </form>
         </div>
 
-        <div class="loading text-center">
-            <div class="spinner-border" role="status">
-                <span class="visually-hidden">Chargement...</span>
-            </div>
+        <button id="indexButton">Indexer les documents</button>
+
+        <div class="query-section">
+            <h3>Poser une question</h3>
+            <form id="queryForm">
+                <textarea id="query" name="query" rows="4" style="width: 100%;"></textarea>
+                <button type="submit">Envoyer</button>
+            </form>
         </div>
 
         <div class="row">
@@ -42,60 +47,8 @@
                 <div id="response" class="border p-3 rounded bg-light"></div>
             </div>
         </div>
-    </div>
+        <div id="status" class="status"></div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script>
-        $(document).ready(function() {
-            $('#indexBtn').click(function() {
-                const btn = $(this);
-                btn.prop('disabled', true);
-                $('#indexStatus').text('Indexation en cours...');
-                
-                $.post('/index_documents')
-                    .done(function(data) {
-                        $('#indexStatus').text(data.message);
-                    })
-                    .fail(function(xhr) {
-                        $('#indexStatus').text('Erreur lors de l\'indexation');
-                    })
-                    .always(function() {
-                        btn.prop('disabled', false);
-                    });
-            });
-
-            $('#queryBtn').click(function() {
-                const query = $('#queryInput').val();
-                if (!query) return;
-
-                const btn = $(this);
-                btn.prop('disabled', true);
-                $('.loading').show();
-                $('#response').empty();
-
-                $.post('/query', {query: query})
-                    .done(function(data) {
-                        if (data.status === 'success') {
-                            $('#response').text(data.response);
-                        } else {
-                            $('#response').text('Erreur: ' + data.message);
-                        }
-                    })
-                    .fail(function(xhr) {
-                        $('#response').text('Erreur de communication avec le serveur');
-                    })
-                    .always(function() {
-                        btn.prop('disabled', false);
-                        $('.loading').hide();
-                    });
-            });
-
-            $('#queryInput').keypress(function(e) {
-                if (e.which === 13) {
-                    $('#queryBtn').click();
-                }
-            });
-        });
-    </script>
-</body>
-</html>
+        <script src="/static/script.js"></script>
+    </body>
+    </html>
