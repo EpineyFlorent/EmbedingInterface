@@ -7,6 +7,7 @@ from scipy.spatial.distance import cosine
 from sentence_transformers import SentenceTransformer
 from PyPDF2 import PdfReader
 from docx import Document
+from flask import url_for
 import torch
 
 app = Flask(__name__)
