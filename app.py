@@ -1,4 +1,3 @@
-from flask import Flask, render_template, request, jsonify, session
 import os
 import json
 import numpy as np
@@ -7,176 +6,96 @@ from scipy.spatial.distance import cosine
 from sentence_transformers import SentenceTransformer
 from PyPDF2 import PdfReader
 from docx import Document
-from flask import url_for
-from flask import jsonify
 import torch
+import sys
 
-app = Flask(__name__)
-app.secret_key = 'votre_clé_secrète_ici'  # Nécessaire pour utiliser session
-
-# Valeurs par défaut
-DEFAULT_CONFIG = {
-    'data_dir': r"C:\Users\Florent\Documents\Documents\HES-SO\IA\EmbedingInterface\documents",
-    'embeddings_file': "embeddings.json",
-    'model': "llama3.2",
-    'embedding_model': "all-MiniLM-L6-v2"
-}
-
+# Use GPU if available
 device = "cuda" if torch.cuda.is_available() else "cpu"
-OLLAMA_URL = "http://localhost:11434/api/generate"
+print(f"Using device: {device}")
 
-def get_config():
-    return {
-        'data_dir': session.get('data_dir', DEFAULT_CONFIG['data_dir']),
-        'embeddings_file': session.get('embeddings_file', DEFAULT_CONFIG['embeddings_file']),
-        'model': session.get('model', DEFAULT_CONFIG['model']),
-        'embedding_model' : DEFAULT_CONFIG['embedding_model']
-    }
+# Load transformer model for embeddings
+model = SentenceTransformer("all-MiniLM-L6-v2").to(device)
 
-@app.route('/')
-def home():
-    config = get_config()
-    return render_template('index.html', config=config)
+# Directory where your files are stored
+DATA_DIR = r"C:\Users\Florent\Documents\Documents\HES-SO\IA\EmbedingInterface\documents"
+EMBEDDINGS_FILE = "embeddings.json"
 
-@app.route('/update_config', methods=['POST'])
-def update_config():
-    session['data_dir'] = request.form.get('data_dir', DEFAULT_CONFIG['data_dir'])
-    session['embeddings_file'] = request.form.get('embeddings_file', DEFAULT_CONFIG['embeddings_file'])
-    session['model'] = request.form.get('model', DEFAULT_CONFIG['model'])
-    return jsonify({"status": "success"})
+OLLAMA_URL = "http://localhost:11434/api/generate"  # Adjust if needed
 
-@app.route('/index_documents', methods=['POST'])
-def handle_indexing():
-    config = get_config()
-    try:
-        embedding_model = SentenceTransformer(config['embedding_model']).to(device)
-        index_documents(embedding_model, config['data_dir'], config['embeddings_file'])
-        return jsonify({"status": "success", "message": "Documents indexés avec succès"})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)})
+def extract_text_from_file(file_path):
+    """Extract text from TXT, PDF, or DOCX files."""
+    # Skip temporary files (e.g., those starting with '~$')
+    if os.path.basename(file_path).startswith("~$"):
+        print(f"Skipping temporary file: {file_path}")
+        return None
 
-@app.route('/query', methods=['POST'])
-def handle_query():
-    query = request.form.get('query')
-    if not query:
-        return jsonify({"status": "error", "message": "Query manquante"})
+    ext = file_path.lower().split('.')[-1]
 
-    config = get_config()
-    try:
-        embedding_model = SentenceTransformer(config['embedding_model']).to(device)
-        answer = ask_llm(query, embedding_model, config)
-        return jsonify({"status": "success", "response": answer})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)})
+    if ext == "txt":
+        with open(file_path, "r", encoding="utf-8") as f:
+            return f.read()
 
-@app.route('/browse', methods=['POST'])
-def browse():
-    try:
-        data = request.get_json()
-        current_path = data.get('current_path', None)
-        file_type = data.get('type', 'folder')
-        extension = data.get('extension', '')
+    elif ext == "pdf":
+        reader = PdfReader(file_path)
+        return "\n".join([page.extract_text() for page in reader.pages if page.extract_text()])
 
-        # Si pas de chemin ou chemin invalide, utiliser le répertoire courant
-        if not current_path or not os.path.exists(current_path):
-            current_path = os.getcwd()
-
-        # Si c'est un fichier, utiliser son dossier parent
-        if os.path.isfile(current_path):
-            current_path = os.path.dirname(current_path)
-
-        # Normalise le chemin
-        current_path = os.path.abspath(current_path)
-
-        items = []
+    elif ext == "docx":
         try:
-            with os.scandir(current_path) as entries:
-                for entry in entries:
-                    # Ignore les fichiers/dossiers cachés
-                    if entry.name.startswith('.'):
-                        continue
+            doc = Document(file_path)
+            return "\n".join([para.text for para in doc.paragraphs])
+        except Exception as e:
+            print(f"Error processing DOCX file {file_path}: {e}")
+            return None
 
-                    try:
-                        if file_type == 'file' and entry.is_file():
-                            if not extension or entry.name.endswith(extension):
-                                items.append({
-                                    'name': entry.name,
-                                    'path': os.path.abspath(entry.path),
-                                    'type': 'file'
-                                })
-                        elif file_type == 'folder' and entry.is_dir():
-                            items.append({
-                                'name': entry.name,
-                                'path': os.path.abspath(entry.path),
-                                'type': 'dir'
-                            })
-                    except (PermissionError, OSError):
-                        continue
-        except PermissionError:
-            return jsonify({
-                'status': 'error',
-                'message': 'Accès refusé au dossier'
-            })
+    return None
 
-        return jsonify({
-            'status': 'success',
-            'items': sorted(items, key=lambda x: (x['type'] != 'dir', x['name'].lower())),
-            'current_path': current_path
-        })
 
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'message': f'Erreur de navigation : {str(e)}'
-        })
-
-# Modification des fonctions existantes pour utiliser la config
-def index_documents(model, data_dir, embeddings_file):
+def index_documents():
+    """Generate embeddings for all documents in the folder and subfolders and save them."""
     embeddings = {}
-    for root, _, files in os.walk(data_dir):
+
+    for root, _, files in os.walk(DATA_DIR):  # Walk through all directories
         for file in files:
             file_path = os.path.join(root, file)
+            print(f"Processing file: {file_path}")  # Debugging print statement
+
             text = extract_text_from_file(file_path)
             if text:
+                print(f"Extracted {len(text)} characters from {file_path}")  # Debugging print statement
                 embedding = model.encode(text, convert_to_numpy=True).tolist()
                 embeddings[file_path] = {"text": text, "embedding": embedding}
+            else:
+                print(f"No text extracted from {file_path}")
 
-    with open(embeddings_file, "w") as f:
+    with open(EMBEDDINGS_FILE, "w") as f:
         json.dump(embeddings, f)
 
-def search_documents(query, model, config, top_k=3):
-    with open(config['embeddings_file'], "r") as f:
+    print(f"Indexed {len(embeddings)} documents.")
+
+
+def search_documents(query, top_k=3):
+    """Retrieve top-k relevant documents based on cosine similarity."""
+    with open(EMBEDDINGS_FILE, "r") as f:
         embeddings = json.load(f)
 
     query_embedding = model.encode(query, convert_to_numpy=True)
+
+    # Compute cosine similarity and sort results
     results = []
     for file, data in embeddings.items():
         similarity = 1 - cosine(query_embedding, np.array(data["embedding"]))
         results.append((file, similarity, data["text"]))
 
     results.sort(key=lambda x: x[1], reverse=True)
+
     top_results = results[:top_k]
-    return "\n\n".join([f"### {file}:\n{text[:1000]}" for file, _, text in top_results])
+    retrieved_text = "\n\n".join([f"### {file}:\n{text[:1000]}" for file, _, text in top_results])  # Limit text size
 
-def extract_text_from_file(file_path):
-    if file_path.lower().endswith('.txt'):
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return f.read()
-    elif file_path.lower().endswith('.pdf'):
-        text = ""
-        with open(file_path, 'rb') as f:
-            pdf = PdfReader(f)
-            for page in pdf.pages:
-                text += page.extract_text() + "\n"
-        return text
-    elif file_path.lower().endswith('.docx'):
-        doc = Document(file_path)
-        return "\n".join([paragraph.text for paragraph in doc.paragraphs])
-    else:
-        return None
+    return retrieved_text
 
-def ask_llm(query, model, config):
-    context = search_documents(query, model, config)
+def ask_llm(query):
+    """Query the Ollama container via HTTP API with retrieved document context."""
+    context = search_documents(query)
     prompt = f"""
     You are an AI assistant answering questions based on provided documents.
 
@@ -190,14 +109,46 @@ def ask_llm(query, model, config):
     """
 
     data = {
-        "model": config['model'],
+        "model": "llama3.2",  # Make sure this model is available in the container
         "prompt": prompt,
-        "stream": False
+        "stream": False  # Change to True if you want streaming responses
     }
 
-    response = requests.post(OLLAMA_URL, json=data)
-    response_json = response.json()
-    return response_json.get("response", "Error: No response from Ollama")
+    try:
+        response = requests.post(OLLAMA_URL, json=data)
+        response_json = response.json()
+        return response_json.get("response", "Error: No response from Ollama")
+
+    except requests.exceptions.RequestException as e:
+        return f"Error communicating with Ollama: {e}"
+
+def main():
+    if len(sys.argv) < 2:
+        print(json.dumps({"status": "error", "message": "Arguments manquants"}))
+        return
+
+    try:
+        args = json.loads(sys.argv[1])
+        command = args.get('command')
+
+        if command == 'index':
+            index_documents()
+            print(json.dumps({"status": "success", "message": "Documents indexés avec succès"}))
+
+        elif command == 'query':
+            query = args.get('query')
+            if not query:
+                print(json.dumps({"status": "error", "message": "Query manquante"}))
+                return
+
+            answer = ask_llm(query)
+            print(json.dumps({"status": "success", "response": answer}))
+
+        else:
+            print(json.dumps({"status": "error", "message": "Commande invalide"}))
+
+    except Exception as e:
+        print(json.dumps({"status": "error", "message": str(e)}))
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    main()
