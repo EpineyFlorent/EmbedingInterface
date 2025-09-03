@@ -36,16 +36,7 @@ function createWindow() {
         let error = ''
 
         pythonProcess.stdout.on('data', (data) => {
-            const lines = data.toString().split('\n')
-            lines.forEach(line => {
-                if (line.trim().startsWith('{')) {
-                    // Garde uniquement les lignes JSON
-                    output = line.trim()
-                } else {
-                    // Log les autres lignes comme debug
-                    console.log('Debug Python:', line)
-                }
-            })
+            output += data.toString()
         })
 
         pythonProcess.stderr.on('data', (data) => {
