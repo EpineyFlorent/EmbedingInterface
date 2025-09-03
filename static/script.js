@@ -58,16 +58,24 @@ document.getElementById('queryForm').onsubmit = async (e) => {
     showSpinner();
     try {
         const query = new FormData(e.target).get('query');
+        console.log('Envoi de la requête:', query);
+
         const result = await ipcRenderer.invoke('query', query);
-        const data = JSON.parse(result);
-        if (data.status === 'success') {
+        console.log('Résultat brut reçu:', result);
+
+        // Gestion plus robuste du parsing JSON
+        const data = typeof result === 'string' ? JSON.parse(result) : result;
+
+        if (data && data.status === 'success') {
             document.getElementById('response').textContent = data.response;
+            showStatus('Requête traitée avec succès', 'success');
         } else {
-            showStatus(data.message, 'error');
+            throw new Error(data?.message || 'Réponse invalide du serveur');
         }
     } catch (error) {
-        showStatus('Erreur lors de la requête', 'error');
-        console.error(error);
+        showStatus(error.message, 'error');
+        console.error('Erreur complète:', error);
+        document.getElementById('response').textContent = '';
     } finally {
         hideSpinner();
     }
