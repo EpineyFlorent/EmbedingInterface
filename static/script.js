@@ -53,6 +53,33 @@ document.getElementById('indexButton').onclick = async () => {
     }
 };
 
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        const savedConfig = await ipcRenderer.invoke('load-config')
+        document.getElementById('data_dir').value = savedConfig.data_dir
+        document.getElementById('embeddings_file').value = savedConfig.embeddings_file
+        document.getElementById('model').value = savedConfig.model
+    } catch (error) {
+        console.error('Erreur lors du chargement de la configuration:', error)
+    }
+})
+
+document.getElementById('configForm').onsubmit = async (e) => {
+    e.preventDefault()
+    try {
+        const config = {
+            data_dir: document.getElementById('data_dir').value,
+            embeddings_file: document.getElementById('embeddings_file').value,
+            model: document.getElementById('model').value
+        }
+        await ipcRenderer.invoke('save-config', config)
+        showStatus('Configuration sauvegardée', 'success')
+    } catch (error) {
+        showStatus('Erreur lors de la sauvegarde', 'error')
+        console.error(error)
+    }
+}
+
 document.getElementById('queryForm').onsubmit = async (e) => {
     e.preventDefault();
     showSpinner();

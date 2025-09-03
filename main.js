@@ -1,6 +1,18 @@
-const { app, BrowserWindow, dialog, ipcMain } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog } = require('electron')
+const ElectronStore = require('electron-store')
 const path = require('path')
 const { spawn } = require('child_process')
+
+// Initialisation du store
+const store = new ElectronStore({
+    defaults: {
+        appConfig: {
+            data_dir: '',
+            embeddings_file: '',
+            model: ''
+        }
+    }
+})
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -53,29 +65,43 @@ function createWindow() {
         })
     })
 })
-  ipcMain.handle('query', async (event, query) => {
-    return new Promise((resolve, reject) => {
-      const process = spawn('python', ['app.py', JSON.stringify({ command: 'query', query: query })])
-      let output = ''
-      let error = ''
 
-      process.stdout.on('data', (data) => {
-        output += data.toString()
-      })
+ipcMain.handle('query', async (event, query) => {
+return new Promise((resolve, reject) => {
+  const process = spawn('python', ['app.py', JSON.stringify({ command: 'query', query: query })])
+  let output = ''
+  let error = ''
 
-      process.stderr.on('data', (data) => {
-        error += data.toString()
-      })
-
-      process.on('close', (code) => {
-        if (code === 0) {
-          resolve(output)
-        } else {
-          reject(error)
-        }
-      })
-    })
+  process.stdout.on('data', (data) => {
+    output += data.toString()
   })
+
+  process.stderr.on('data', (data) => {
+    error += data.toString()
+  })
+
+  process.on('close', (code) => {
+    if (code === 0) {
+      resolve(output)
+    } else {
+      reject(error)
+    }
+  })
+})
+})
+
+ipcMain.handle('save-config', async (event, config) => {
+    store.set('appConfig', config)
+    return { status: 'success' }
+})
+
+ipcMain.handle('load-config', async () => {
+    return store.get('appConfig', {
+        data_dir: '',
+        embeddings_file: '',
+        model: ''
+    })
+})
 
   win.loadFile('templates/index.html')
 }
