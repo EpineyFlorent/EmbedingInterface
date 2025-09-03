@@ -11,7 +11,7 @@ import sys
 
 # Use GPU if available
 device = "cuda" if torch.cuda.is_available() else "cpu"
-print(f"Using device: {device}")
+# print(f"Using device: {device}")
 
 # Load transformer model for embeddings
 model = SentenceTransformer("all-MiniLM-L6-v2").to(device)
@@ -26,7 +26,7 @@ def extract_text_from_file(file_path):
     """Extract text from TXT, PDF, or DOCX files."""
     # Skip temporary files (e.g., those starting with '~$')
     if os.path.basename(file_path).startswith("~$"):
-        print(f"Skipping temporary file: {file_path}")
+#         print(f"Skipping temporary file: {file_path}")
         return None
 
     ext = file_path.lower().split('.')[-1]
@@ -57,11 +57,11 @@ def index_documents():
     for root, _, files in os.walk(DATA_DIR):  # Walk through all directories
         for file in files:
             file_path = os.path.join(root, file)
-            print(f"Processing file: {file_path}")  # Debugging print statement
+#             print(f"Processing file: {file_path}")  # Debugging print statement
 
             text = extract_text_from_file(file_path)
             if text:
-                print(f"Extracted {len(text)} characters from {file_path}")  # Debugging print statement
+#                 print(f"Extracted {len(text)} characters from {file_path}")  # Debugging print statement
                 embedding = model.encode(text, convert_to_numpy=True).tolist()
                 embeddings[file_path] = {"text": text, "embedding": embedding}
             else:
@@ -70,7 +70,7 @@ def index_documents():
     with open(EMBEDDINGS_FILE, "w") as f:
         json.dump(embeddings, f)
 
-    print(f"Indexed {len(embeddings)} documents.")
+#     print(f"Indexed {len(embeddings)} documents.")
 
 
 def search_documents(query, top_k=3):
