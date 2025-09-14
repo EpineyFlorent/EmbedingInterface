@@ -30,6 +30,7 @@ function createWindow() {
     }
   })
 
+
   ipcMain.handle('select-directory', async () => {
     const result = await dialog.showOpenDialog(win, {
       properties: ['openDirectory']
@@ -51,58 +52,73 @@ function createWindow() {
     return new Promise((resolve, reject) => {
         const pythonProcess = spawn(pythonExe, [JSON.stringify({
             command: 'index',
-            ...config
+            directory: store.get('appConfig.data_dir'), // Use stored data_dir
+            embeddings_file: store.get('appConfig.embeddings_file') // Use stored embeddings_file
+        })]);
+
+        let output = '';
+        let error = '';
+
+        pythonProcess.stdout.on('data', (data) => {
+            output += data.toString();
+        });
+
+        pythonProcess.stderr.on('data', (data) => {
+            error += data.toString();
+        });
+
+        pythonProcess.on('close', (code) => {
+            if (code === 0 && output) {
+                try {
+                    const result = JSON.parse(output);
+                    resolve(result);
+                } catch (e) {
+                    reject('Invalid JSON output: ' + output);
+                }
+            } else {
+                reject(error || 'Process failed without output');
+            }
+        });
+    });
+});
+
+ipcMain.handle('query', async (event, query) => {
+    return new Promise((resolve, reject) => {
+        const process = spawn(pythonExe, [JSON.stringify({
+            command: 'query',
+            data_dir: store.get('appConfig.data_dir'),
+            embeddings_file: store.get('appConfig.embeddings_file'),
+            model: store.get('appConfig.model'),
+            query: query
         })]);
         let output = ''
         let error = ''
 
-        pythonProcess.stdout.on('data', (data) => {
-            output += data.toString()
-        })
+      process.stdout.on('data', (data) => {
+        output += data.toString()
+      })
 
-        pythonProcess.stderr.on('data', (data) => {
-            console.error('Erreur Python:', data.toString())
-            error += data.toString()
-        })
+      process.stderr.on('data', (data) => {
+        error += data.toString()
+      })
 
-        pythonProcess.on('close', (code) => {
-            if (code === 0 && output) {
-                resolve(output)
+        process.on('close', (code) => {
+            if (code === 0) {
+                try {
+                    const result = JSON.parse(output);
+                    if (result.response && result.response.includes("Error: No response from Ollama")) {
+                        reject("Ollama server is not responding. Make sure it's running and accessible.");
+                    } else {
+                        resolve(output);
+                    }
+                } catch (e) {
+                    reject("Invalid response format");
+                }
             } else {
-                reject(error || 'Erreur inconnue')
+                reject(error || "Process failed");
             }
-        })
+        });
     })
-})
-
-ipcMain.handle('query', async (event, query) => {
-return new Promise((resolve, reject) => {
-    const process = spawn(pythonExe, [JSON.stringify({
-        command: 'query',
-        data_dir: store.get('appConfig.data_dir'),
-        embeddings_file: store.get('appConfig.embeddings_file'),
-        model: store.get('appConfig.model'),
-        query: query
-    })]);
-    let output = ''
-    let error = ''
-
-  process.stdout.on('data', (data) => {
-    output += data.toString()
-  })
-
-  process.stderr.on('data', (data) => {
-    error += data.toString()
-  })
-
-  process.on('close', (code) => {
-    if (code === 0) {
-      resolve(output)
-    } else {
-      reject(error)
-    }
-  })
-})
 })
 
 ipcMain.handle('save-config', async (event, config) => {

@@ -17,8 +17,8 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 model = SentenceTransformer("all-MiniLM-L6-v2").to(device)
 
 # Directory where your files are stored
-DATA_DIR = r"C:\Users\Florent\Documents\Documents\HES-SO\IA\EmbedingInterface\documents"
-EMBEDDINGS_FILE = "embeddings.json"
+# DATA_DIR = r"C:\Users\Florent\Documents\Documents\HES-SO\IA\EmbedingInterface\documents"
+# EMBEDDINGS_FILE = "embeddings.json"
 
 OLLAMA_URL = "http://localhost:11434/api/generate"  # Adjust if needed
 
@@ -50,77 +50,76 @@ def extract_text_from_file(file_path):
     return None
 
 
-def index_documents():
-    """Generate embeddings for all documents in the folder and subfolders and save them."""
+def index_documents(data_dir, embeddings_file):
     embeddings = {}
-
-    for root, _, files in os.walk(DATA_DIR):  # Walk through all directories
+    for root, _, files in os.walk(data_dir):
         for file in files:
             file_path = os.path.join(root, file)
-#             print(f"Processing file: {file_path}")  # Debugging print statement
-
             text = extract_text_from_file(file_path)
             if text:
-#                 print(f"Extracted {len(text)} characters from {file_path}")  # Debugging print statement
                 embedding = model.encode(text, convert_to_numpy=True).tolist()
                 embeddings[file_path] = {"text": text, "embedding": embedding}
-            else:
-                print(f"No text extracted from {file_path}")
 
-    with open(EMBEDDINGS_FILE, "w") as f:
+    with open(embeddings_file, "w") as f:
         json.dump(embeddings, f)
 
 #     print(f"Indexed {len(embeddings)} documents.")
 
 
-def search_documents(query, top_k=3):
+def search_documents(query, embeddings_file, top_k=3):
     """Retrieve top-k relevant documents based on cosine similarity."""
-    with open(EMBEDDINGS_FILE, "r") as f:
-        embeddings = json.load(f)
-
-    query_embedding = model.encode(query, convert_to_numpy=True)
-
-    # Compute cosine similarity and sort results
-    results = []
-    for file, data in embeddings.items():
-        similarity = 1 - cosine(query_embedding, np.array(data["embedding"]))
-        results.append((file, similarity, data["text"]))
-
-    results.sort(key=lambda x: x[1], reverse=True)
-
-    top_results = results[:top_k]
-    retrieved_text = "\n\n".join([f"### {file}:\n{text[:1000]}" for file, _, text in top_results])  # Limit text size
-
-    return retrieved_text
-
-def ask_llm(query):
-    """Query the Ollama container via HTTP API with retrieved document context."""
-    context = search_documents(query)
-    prompt = f"""
-    You are an AI assistant answering questions based on provided documents.
-
-    Context:
-    {context}
-
-    User Query:
-    {query}
-
-    Provide a well-explained answer using the context.
-    """
-
-    data = {
-        "model": "llama3.2",  # Make sure this model is available in the container
-        "prompt": prompt,
-        "stream": False  # Change to True if you want streaming responses
-    }
-
     try:
+        if not os.path.exists(embeddings_file):
+            raise FileNotFoundError(f"Embeddings file not found: {embeddings_file}")
+
+        with open(embeddings_file, "r") as f:
+            embeddings = json.load(f)
+
+        query_embedding = model.encode(query, convert_to_numpy=True)
+
+        # Compute cosine similarity and sort results
+        results = []
+        for file, data in embeddings.items():
+            similarity = 1 - cosine(query_embedding, np.array(data["embedding"]))
+            results.append((file, similarity, data["text"]))
+
+        results.sort(key=lambda x: x[1], reverse=True)
+
+        top_results = results[:top_k]
+        retrieved_text = "\n\n".join([f"### {file}:\n{text[:1000]}" for file, _, text in top_results])
+        return retrieved_text
+
+    except Exception as e:
+        raise Exception(f"Error in search_documents: {str(e)}")
+
+def ask_llm(query, embeddings_file, model):
+    """Query the Ollama container via HTTP API with retrieved document context."""
+    try:
+        context = search_documents(query, embeddings_file)
+        prompt = f"""
+        You are an AI assistant answering questions based on provided documents.
+
+        Context:
+        {context}
+
+        User Query:
+        {query}
+
+        Provide a well-explained answer using the context.
+        """
+
+        data = {
+            "model": model,
+            "prompt": prompt,
+            "stream": False  # Change to True if you want streaming responses
+        }
+
         response = requests.post(OLLAMA_URL, json=data)
         response_json = response.json()
         return response_json.get("response", "Error: No response from Ollama")
 
-    except requests.exceptions.RequestException as e:
-        return f"Error communicating with Ollama: {e}"
+    except Exception as e:
+        raise Exception(f"Error in ask_llm: {str(e)}")
 
 def main():
     if len(sys.argv) < 2:
@@ -130,9 +129,21 @@ def main():
     try:
         args = json.loads(sys.argv[1])
         command = args.get('command')
+        data_dir = args.get('directory')
+        embeddings_file = args.get('embeddings_file', 'embeddings.json')
+        model = args.get('model')
+
+        if not embeddings_file:
+            print(json.dumps({"status": "error", "message": "Embeddings file missing"}))
+            return
 
         if command == 'index':
-            index_documents()
+
+            if not data_dir:
+                print(json.dumps({"status": "error", "message": "Directory path missing"}))
+                return
+
+            index_documents(data_dir, embeddings_file)
             print(json.dumps({"status": "success", "message": "Documents indexés avec succès"}))
 
         elif command == 'query':
@@ -141,7 +152,11 @@ def main():
                 print(json.dumps({"status": "error", "message": "Query manquante"}))
                 return
 
-            answer = ask_llm(query)
+            if not model:
+                 print(json.dumps({"status": "error", "message": "Model manquant"}))
+                 return
+
+            answer = ask_llm(query, embeddings_file, model)
             print(json.dumps({"status": "success", "response": answer}))
 
         else:

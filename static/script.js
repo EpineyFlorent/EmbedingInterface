@@ -88,7 +88,18 @@ document.getElementById('queryForm').onsubmit = async (e) => {
         console.log('Envoi de la requête:', query);
 
         const result = await ipcRenderer.invoke('query', query);
+        console.log('Type du résultat:', typeof result);
         console.log('Résultat brut reçu:', result);
+
+        // Validation du résultat
+        if (!result) {
+            throw new Error('Aucune réponse du serveur');
+        }
+
+        // Si le résultat est vide mais existe
+        if (result === '' || (typeof result === 'object' && Object.keys(result).length === 0)) {
+            throw new Error('La réponse est vide');
+        }
 
         // Gestion plus robuste du parsing JSON
         const data = typeof result === 'string' ? JSON.parse(result) : result;
