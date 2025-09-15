@@ -16,10 +16,6 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 # Load transformer model for embeddings
 model = SentenceTransformer("all-MiniLM-L6-v2").to(device)
 
-# Directory where your files are stored
-# DATA_DIR = r"C:\Users\Florent\Documents\Documents\HES-SO\IA\EmbedingInterface\documents"
-# EMBEDDINGS_FILE = "embeddings.json"
-
 OLLAMA_URL = "http://localhost:11434/api/generate"  # Adjust if needed
 
 def extract_text_from_file(file_path):

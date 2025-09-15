@@ -30,7 +30,6 @@ function createWindow() {
     }
   })
 
-
   ipcMain.handle('select-directory', async () => {
     const result = await dialog.showOpenDialog(win, {
       properties: ['openDirectory']

@@ -20,22 +20,22 @@ function showStatus(message, type) {
         statusDiv.style.opacity = '0';
         statusDiv.style.transition = 'opacity 0.5s';
         setTimeout(() => statusDiv.remove(), 500);
-    }, 3000);
+    }, 5000);
 }
 
 document.getElementById('indexButton').onclick = async () => {
     showSpinner();
+    var config;
+    var result;
     try {
-        const config = {
+        config = {
             command: 'index',
             data_dir: document.getElementById('data_dir').value,
             embeddings_file: document.getElementById('embeddings_file').value,
             model: document.getElementById('model').value
         };
 
-        console.log('Envoi de la configuration:', config);
-        const result = await ipcRenderer.invoke('index-documents', config);
-        console.log('Résultat brut reçu:', typeof result, result);
+        result = await ipcRenderer.invoke('index-documents', config);
 
         // Si result est déjà un objet, pas besoin de parser
         const data = typeof result === 'string' ? JSON.parse(result) : result;
@@ -47,6 +47,8 @@ document.getElementById('indexButton').onclick = async () => {
         }
     } catch (error) {
         showStatus(error.message, 'error');
+        console.log('Envoi de la configuration:', config);
+        console.log('Résultat brut reçu:', typeof result, result);
         console.error('Erreur complète:', error);
     } finally {
         hideSpinner();
@@ -83,13 +85,12 @@ document.getElementById('configForm').onsubmit = async (e) => {
 document.getElementById('queryForm').onsubmit = async (e) => {
     e.preventDefault();
     showSpinner();
+    var query;
+    var result;
     try {
-        const query = new FormData(e.target).get('query');
-        console.log('Envoi de la requête:', query);
+        query = new FormData(e.target).get('query');
 
-        const result = await ipcRenderer.invoke('query', query);
-        console.log('Type du résultat:', typeof result);
-        console.log('Résultat brut reçu:', result);
+        result = await ipcRenderer.invoke('query', query);
 
         // Validation du résultat
         if (!result) {
@@ -112,6 +113,9 @@ document.getElementById('queryForm').onsubmit = async (e) => {
         }
     } catch (error) {
         showStatus(error.message, 'error');
+        console.log('Envoi de la requête:', query);
+        console.log('Type du résultat:', typeof result);
+        console.log('Résultat brut reçu:', result);
         console.error('Erreur complète:', error);
         document.getElementById('response').textContent = '';
     } finally {
