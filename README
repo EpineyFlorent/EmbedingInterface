@@ -1,0 +1,25 @@
+# Embedding Interface
+
+A desktop application built with Electron and Python for document indexing and querying using embeddings and Ollama LLM.
+The scope is to use the app via the .exe .
+
+## Prerequisites for using the .exe
+
+- Ollama running in Docker with running IA model
+
+# Initialize a new npm project
+npm init -y
+
+# Start the Electron application in development mode
+npm start
+
+# Build both Python executable and Electron app
+npm run build
+
+# Build only the Python executable
+npm run build:python
+# or directly with PyInstaller
+python -m pyinstaller --onefile app.py
+
+# Build only the Electron application
+npm run build:electron
