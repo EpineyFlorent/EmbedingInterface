@@ -1,0 +1,2 @@
+Salut, ce text fut ecrit par Alice pour Bob.
+Merci de votre attention !
