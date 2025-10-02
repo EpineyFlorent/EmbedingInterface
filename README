@@ -24,7 +24,8 @@ python -m pyinstaller --onefile app.py
 # Build only the Electron application
 npm run build:electron
 
-#Improvment
-- tab with access to a cmd in order to run and stop the ollama ai
-- tab with an interface in order to manage the ollama ai
-- Push the setup.exe in GLFS (Git Large File Storage)
+#Improvments
+- have several tabs (create new or duplicate the current one) for different projects (like in Files Explorer in Windows 11)
+- interface with access to a cmd in order to run and stop the ollama ai
+- interface with an interface in order to manage the ollama ai
+- push the setup.exe in GLFS (Git Large File Storage)
