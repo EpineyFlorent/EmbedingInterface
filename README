@@ -26,6 +26,7 @@ npm run build:electron
 
 #Improvments
 - have the option to select either a folder or a file
+- send a notification when the answer is arrived
 - create a conversation feed
 - have several tabs (create new or duplicate the current one) for different projects (like in Files Explorer in Windows 11)
 - interface with access to a cmd in order to run and stop the ollama ai
